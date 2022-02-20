@@ -1,0 +1,132 @@
+<ROSETTASCRIPTS>
+
+  <SCOREFXNS>
+    <ScoreFunction name="SFXN1" weights="fldsgn_cen">
+      <Reweight scoretype="cenpack" weight="1.0" />
+      <Reweight scoretype="hbond_sr_bb" weight="1.0" />
+      <Reweight scoretype="hbond_lr_bb" weight="1.0" />
+      <Reweight scoretype="atom_pair_constraint" weight="1.0" />
+      <Reweight scoretype="angle_constraint" weight="1.0" />
+      <Reweight scoretype="dihedral_constraint" weight="1.0" />
+    </ScoreFunction>
+    <ScoreFunction name="SFXN2" weights="talaris2013" />
+
+    <ScoreFunction name="tala13" weights="talaris2013" />
+    <ScoreFunction name="tala14" weights="talaris2014" />
+
+    <ScoreFunction name="TotalHydrophobic" weights="/work/grocklin/gabe_scripts/total_hydrophobic_weights.wts"/>
+
+  </SCOREFXNS>
+ 
+  <TASKOPERATIONS>
+        <LayerDesign name="layer_core_boundry_SCN" layer="core_boundry" pore_radius="2.0" verbose="true" use_sidechain_neighbors="True" />
+        <LayerDesign name="layer_all" layer="core_boundary_surface_Nterm_Cterm" pore_radius="2.0" verbose="True" use_sidechain_neighbors="True" />
+        <LayerDesign name="layer_core_SCN" layer="core" pore_radius="2.2" verbose="false" use_sidechain_neighbors="True" />
+        <LayerDesign name="layer_core_SASA" layer="core" pore_radius="2.0" verbose="true" />
+    	<ConsensusLoopDesign name="disallow_nn_loops" />
+	
+        <InitializeFromCommandline name="init"/>
+    	<LimitAromaChi2 name="limitchi2" include_trp="1" />
+
+        <LimitAromaChi2 name="arochi2"/>
+        <IncludeCurrent name="inclcur"/>
+        <DisallowIfNonnative name="noAlaHis" disallow_aas="AH" />
+
+  </TASKOPERATIONS>
+  <FILTERS>
+        <Geometry name="omega" omega="165" cart_bonded="35" start="1" confidence="1"/>
+        <PackStat name="packstat" repeats="5" threshold="0.59" confidence="1"/>
+        <AverageDegree name="degreeB" confidence="1" threshold="9.3" />task_operations="pcfr" />
+
+        <ExposedHydrophobics name="exposed_hydrophobics" sasa_cutoff="20" threshold="60" confidence="0"/>
+        <ExposedHydrophobics name="exposed_hydrophobics_score" confidence="0" />
+
+        <Holes name="holes" threshold="6.0" confidence="0" />
+        <ScoreType name="total_score_cen" score_type="total_score" scorefxn="talaris2013" confidence="0" threshold="0" />
+	<ScoreType name="total_score" scorefxn="SFXN2"  threshold="0"/>
+        <ScoreType name="score14" scorefxn="tala14"  threshold="0"/>
+
+        <AtomicContactCount name="contact" confidence="0" />
+        <CavityVolume name="cavity" confidence="0" />
+
+        <ResidueCount name="res_count_all" max_residue_count="9999" confidence="0"/>
+
+        <ResidueCount name="total_res" confidence="0"/>
+        <CalculatorFilter name="score_per_res" equation="total_score / res" threshold="-1.6" confidence="1">
+          <Var name="total_score" filter="total_score"/>
+          <Var name="res" filter="res_count_all"/>
+        </CalculatorFilter>
+
+        <ScoreType name="hbond_sfn" scorefxn="talaris2013" score_type="hbond_lr_bb" threshold="0" confidence="0" />
+
+        <FragmentLookupFilter name="faulty_fragments" lookup_name="source_fragments_4_mer" store_path="/lab/databases/VALL_clustered/backbone_profiler_database_06032014" lookup_mode="first" chain="1" threshold="0"  confidence="1" />
+        <SecondaryStructureHasResidue name="ss_has_core" secstruct_fraction_threshold="1.0" ss_select_task_operations="layer_core_boundry_SCN" confidence="1"/>
+
+        <CalculatorFilter name="mean_hbond" equation="hbond / rescount1" threshold="-0.250" confidence="0" >
+            <Var name="hbond" filter="hbond_sfn"/>
+            <Var name="rescount1" filter="res_count_all"/>
+        </CalculatorFilter>
+
+        <CalculatorFilter name="contact_per_res" equation="contact1 /rescount1" threshold="-0.35" confidence="0" >
+            <Var name="rescount1" filter="res_count_all"/>
+            <Var name="contact1" filter="contact"/>
+        </CalculatorFilter>
+
+        <BuriedUnsatHbonds name="unsat_hbond" confidence="1" jump_number="0" cutoff="5"/>
+	<ResidueCount name="AlaCount" residue_types="ALA" max_residue_count="6" confidence="1"/>
+
+    	<SSPrediction name="psipred_mm" confidence="1" cmd="/work/chrisk/psipred/runpsipred_single" use_probability="1" mismatch_probability="True" use_svm="0" threshold="0.35"/>
+
+	<ResidueCount name="np_count" residue_types="PHE,MET,ILE,LEU,TYR,TRP,VAL" min_residue_count="7" confidence="1"/>
+
+      	<CalculatorFilter name="np_res" equation="np / res" threshold="-4.125" confidence="0">
+          <Var name="np" filter="np_count"/>
+          <Var name="res" filter="res_count_all"/>
+      	</CalculatorFilter>
+
+    	<ScoreType name="fa_atr_filter" scorefxn="tala13" threshold="0" score_type="fa_atr" />
+
+      	<CalculatorFilter name="fa_atr_per_res" equation="fa_atr_score / res" threshold="-4.125" confidence="1">
+          <Var name="fa_atr_score" filter="fa_atr_filter"/>
+          <Var name="res" filter="res_count_all"/>
+      	</CalculatorFilter>
+
+        <ResidueCount name="res_count_core_SCN" task_operations="layer_core_SCN" max_residue_count="9999" confidence="0"/>
+    	<CalculatorFilter name="percent_core_SCN" equation="- rescount_coreSCN / (rescount3 + 0.01)" threshold="-0.1" confidence="0" >
+            <Var name="rescount3" filter="res_count_all"/>
+            <Var name="rescount_coreSCN" filter="res_count_core_SCN"/>
+        </CalculatorFilter>
+
+
+     </FILTERS>
+
+  <MOVERS>
+
+
+   </MOVERS>
+
+  <PROTOCOLS>
+		<Add filter="fa_atr_per_res"/>
+		<Add filter="np_res"/>
+		<Add filter="faulty_fragments"/>
+		<Add filter="mean_hbond"/>
+		<Add filter="ss_has_core"/>
+		<Add filter="cavity"/>
+		<Add filter="contact_per_res"/>
+                <Add filter="omega"/>
+                <Add filter="packstat"/>
+                <Add filter_name="holes" />
+                <Add filter_name="exposed_hydrophobics_score" />
+                <Add filter_name="contact" />
+                <Add filter_name="total_score_cen" />
+                <Add filter_name="cavity" />
+                <Add filter_name="degreeB" />
+		<Add filter="unsat_hbond"/>
+		<Add filter="AlaCount"/>
+		<Add filter="score_per_res"/>
+		<Add filter="psipred_mm"/>
+		<Add filter="score14"/>
+		<Add filter="percent_core_SCN"/>
+		
+  </PROTOCOLS>
+</ROSETTASCRIPTS>
